@@ -15,6 +15,7 @@ SEV_SNP="0"
 ALLOW_DEBUG="0"
 USE_GDB="0"
 CDROM=""
+KEYMAP="sv" # Swedish keymap, change to your liking. Needed for input in VNC.
 
 EXEC_PATH="./local-installation/usr/local"
 UEFI_PATH="$EXEC_PATH/share/qemu"
@@ -36,7 +37,7 @@ usage() {
 }
 
 add_opts() {
-	echo -n "$* " >> ${QEMU_CMDLINE}
+	echo -n "$* " >>${QEMU_CMDLINE}
 }
 
 exit_from_int() {
@@ -46,7 +47,7 @@ exit_from_int() {
 	exit 1
 }
 
-run_cmd () {
+run_cmd() {
 	$*
 	if [ $? -ne 0 ]; then
 		echo "command $* failed"
@@ -75,50 +76,63 @@ get_cbitpos() {
 
 trap exit_from_int SIGINT
 
-if [ `id -u` -ne 0 ]; then
+if [ $(id -u) -ne 0 ]; then
 	echo "Must be run as root!"
 	exit 1
 fi
 
 while [ -n "$1" ]; do
 	case "$1" in
-		-sev-snp)	SEV_SNP="1"
-				SEV_ES="1"
-				SEV="1"
-				;;
-		-sev-es)	SEV_ES="1"
-				SEV="1"
-				;;
-		-sev)		SEV="1"
-				;;
-		-hda) 		HDA="$2"
-				shift
-				;;
-		-mem)  		MEM="$2"
-				shift
-				;;
-		-smp)		SMP="$2"
-				shift
-				;;
-		-bios)          UEFI_PATH="$2"
-				shift
-				;;
-		-allow-debug)   ALLOW_DEBUG="1"
-				;;
-		-kernel)	KERNEL_FILE=$2
-				shift
-				;;
-		-initrd)	INITRD_FILE=$2
-				shift
-				;;
-		-cdrom) CDROM="$2"
-				shift
-				;;
-		-vnc)   VNC="$2"
-				shift
-				;;
-		*) 		usage
-				;;
+	-sev-snp)
+		SEV_SNP="1"
+		SEV_ES="1"
+		SEV="1"
+		;;
+	-sev-es)
+		SEV_ES="1"
+		SEV="1"
+		;;
+	-sev)
+		SEV="1"
+		;;
+	-hda)
+		HDA="$2"
+		shift
+		;;
+	-mem)
+		MEM="$2"
+		shift
+		;;
+	-smp)
+		SMP="$2"
+		shift
+		;;
+	-bios)
+		UEFI_PATH="$2"
+		shift
+		;;
+	-allow-debug)
+		ALLOW_DEBUG="1"
+		;;
+	-kernel)
+		KERNEL_FILE=$2
+		shift
+		;;
+	-initrd)
+		INITRD_FILE=$2
+		shift
+		;;
+	-cdrom)
+		CDROM="$2"
+		shift
+		;;
+	-vnc)
+		VNC="$2"
+		shift
+		;;
+	*)
+		usage
+		;;
 	esac
 
 	shift
@@ -163,7 +177,7 @@ UEFI_VARS="$(readlink -e ./$GUEST_NAME.fd)"
 
 if [ "$ALLOW_DEBUG" = "1" ]; then
 	# This will dump all the VMCB on VM exit
-	echo 1 > /sys/module/kvm_amd/parameters/dump_all_vmcbs
+	echo 1 >/sys/module/kvm_amd/parameters/dump_all_vmcbs
 
 	# Enable some KVM tracing to the debug
 	#echo kvm: >/sys/kernel/debug/tracing/set_event
@@ -184,7 +198,7 @@ add_opts "$QEMU_EXE"
 add_opts "-enable-kvm -cpu EPYC-v4 -machine q35"
 
 # add number of VCPUs
-[ -n "${SMP}" ] && add_opts "-smp ${SMP},maxcpus=64"
+[ -n "${SMP}" ] && add_opts "-smp ${SMP},maxcpus=32"
 
 # define guest memory
 add_opts "-m ${MEM}M"
@@ -221,16 +235,15 @@ if [ -n "${HDA}" ]; then
 	fi
 fi
 
-
 # If this is SEV guest then add the encryption device objects to enable support
 if [ ${SEV} = "1" ]; then
-	add_opts "-machine memory-encryption=sev0,vmport=off" 
+	add_opts "-machine memory-encryption=sev0,vmport=off"
 	get_cbitpos
 
 	if [ "${SEV_SNP}" = 1 ]; then
 		POLICY=$((0x30000)) # "Base Policy" that allows SMT. See 4.3 in sev snp abi for other options
 		if [ "${ALLOW_DEBUG}" = "1" ]; then
-			POLICY=$(($POLICY | (0x1 << 19) )) #set bit 19, to enable debug api in plicy
+			POLICY=$(($POLICY | (0x1 << 19))) #set bit 19, to enable debug api in policy 
 		fi
 		SEV_POLICY=$(printf "policy=%#x" $POLICY)
 		echo "SEV_POLICY is ${SEV_POLICY}"
@@ -267,8 +280,8 @@ fi
 
 if [ "${VNC}" != "" ]; then
 	add_opts "-vnc ${VNC}"
+	add_opts "-k $KEYMAP"
 fi
-
 
 # start monitor on pty and named socket 'monitor'
 add_opts "-monitor pty -monitor unix:monitor,server,nowait"
@@ -278,14 +291,12 @@ add_opts "-name sev-step-vm,debug-threads=on"
 
 add_opts "-qmp tcp:localhost:4444,server,wait=off"
 
-
 # log the console  output in stdout.log
-QEMU_CONSOLE_LOG=`pwd`/stdout.log
+QEMU_CONSOLE_LOG=$(pwd)/stdout.log
 
 # save the command line args into log file
 cat $QEMU_CMDLINE | tee ${QEMU_CONSOLE_LOG}
 echo | tee -a ${QEMU_CONSOLE_LOG}
-
 
 echo "Disabling transparent huge pages"
 echo "never" | sudo tee /sys/kernel/mm/transparent_hugepage/enabled
@@ -294,6 +305,5 @@ echo "Launching VM ..."
 echo "  $QEMU_CMDLINE"
 sleep 1
 bash ${QEMU_CMDLINE} 2>&1 | tee -a ${QEMU_CONSOLE_LOG}
-
 
 rm -rf ${QEMU_CMDLINE}

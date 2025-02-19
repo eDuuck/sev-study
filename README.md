@@ -38,7 +38,9 @@ In this section you will install the modified SEV-Step kernel, as well as compat
 
 1) Run `./build.sh ovmf`, `./build.sh qemu` to build OVMF and QEMU. All packages are only installed locally in `./local-installation/`.
 2) If you don't use the pre-built kernel packages run `./build.sh kernel` to build the kernel based on the config of the currently active kernel. Afterwards install the packages using `dpkg -i ./kernel-packages/*.deb`
-3) Create the config file `/etc/modprobe.d/kvm.conf` with content
+   
+   *If the kernel build fails to compile, it may be because you downgrade from a newer kernel. A simple fix for this is to downgrade to linux 5.18 by using [Mainline](https://github.com/bkw777/mainline), boot into the 5.18 kernel then run `./build.sh kernel`.*  
+4) Create the config file `/etc/modprobe.d/kvm.conf` with content 
 ```
 # Enable SEV Support
 options kvm_amd sev-snp=1 sev=1 sev-es=1

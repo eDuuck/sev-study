@@ -1,2 +1,6 @@
 local-installation/
 kernel-packages/
+userland-bakup/
+virt-machine/
+*.log
+*.fd
