@@ -13,3 +13,6 @@
 [submodule "sev-study-userland"]
 	path = sev-study-userland
 	url = git@github.com:eDuuck/sev-study-userland.git
+[submodule "sev-step-rust-userland"]
+	path = sev-step-rust-userland
+	url = https://github.com/sev-step/sev-step-rust-userland.git
