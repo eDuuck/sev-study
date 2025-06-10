@@ -137,6 +137,10 @@ while [ -n "$1" ]; do
     VNC="$2"
     shift
     ;;
+  -restrict)
+    NO_NET="1"
+    shift
+    ;;
   *)
     usage
     ;;
@@ -221,7 +225,11 @@ add_opts "-drive if=pflash,format=raw,unit=0,file=${UEFI_CODE},readonly=on"
 # add network support and fwd port 22 to 8000
 # echo "guest port 22 is fwd to host 8000..."
 
-add_opts "-netdev user,id=vmnic,hostfwd=tcp:127.0.0.1:2222-:22,hostfwd=tcp:127.0.0.1:8080-:8080,hostfwd=udp:127.0.0.1:${UDP_PORT}-:${UDP_PORT}"
+if [ "${NO_NET}" = "1" ]; then
+  add_opts "-netdev user,id=vmnic,hostfwd=tcp:127.0.0.1:2222-:22,hostfwd=tcp:127.0.0.1:8080-:8080,hostfwd=udp:127.0.0.1:${UDP_PORT}-:${UDP_PORT},restrict=on"
+else
+  add_opts "-netdev user,id=vmnic,hostfwd=tcp:127.0.0.1:2222-:22,hostfwd=tcp:127.0.0.1:8080-:8080,hostfwd=udp:127.0.0.1:${UDP_PORT}-:${UDP_PORT}"
+fi
 add_opts "-device virtio-net-pci,disable-legacy=on,iommu_platform=true,netdev=vmnic,romfile="
 
 # If harddisk file is specified then add the HDD drive
